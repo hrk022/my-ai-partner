@@ -1,6 +1,5 @@
 import os
 import json
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import streamlit as st
 from dotenv import load_dotenv
 from langchain.text_splitter import CharacterTextSplitter
@@ -11,7 +10,13 @@ from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.docstore.document import Document
-from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
+from langchain.prompts import (
+    ChatPromptTemplate,
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate
+)
+
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 # -------- Load API Key ----------
 load_dotenv("open_ai.env")
@@ -23,85 +28,53 @@ os.environ["OPENAI_API_BASE"] = "https://api.groq.com/openai/v1"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 QUOTES_JSON_PATH = os.path.join(BASE_DIR, "quotes.json")
 
+
 # -------- StreamHandler for Token Streaming --------
 class StreamHandler(BaseCallbackHandler):
     def __init__(self, container):
         self.container = container
         self.text = ""
+
     def on_llm_new_token(self, token: str, **kwargs) -> None:
         self.text += token
         self.container.markdown(self.text + "▌")
 
-# -------- Fallback Quotes --------
-FALLBACK_QUOTES = [
-    "You mean the world to me, darling 💖",
-    "Every moment with you feels like magic ✨",
-    "You're my sunshine on the cloudiest days ☀️",
-    "I love you more than words can express 💕",
-    "You make my heart skip a beat every time 💓",
-    "Being with you feels like coming home 🏠💕",
-    "You're the missing piece to my puzzle 🧩❤️",
-    "Every day with you is a beautiful adventure 🌟",
-    "Your smile lights up my entire world 😊💖",
-    "I fall in love with you more each day 🥰",
-    "You're my favorite hello and hardest goodbye 👋💔",
-    "With you, every moment is a precious gift 🎁💝",
-    "You're not just my love, you're my best friend 👫💕",
-    "In your arms, I've found my safe haven 🤗💖",
-    "You make ordinary moments extraordinary ✨💫",
-    "My love for you grows stronger every day 📈❤️",
-    "You're the reason I believe in fairy tales 🧚‍♀️💖",
-    "Every love song reminds me of you 🎵💕",
-    "You're my today, my tomorrow, my always 🕰️💖",
-    "With you, I've found my forever person 👫♾️"
-]
 
-# -------- Load Quotes from JSON --------
+# -------- Load Quotes from JSON Only --------
 def load_quotes_from_json(json_path=QUOTES_JSON_PATH):
-    """Load quotes from JSON file with comprehensive error handling"""
     try:
-        # Check if file exists
         if not os.path.exists(json_path):
-            st.warning(f"📄 Quotes file not found at: {json_path}")
-            st.info("🔄 Using fallback quotes...")
-            return FALLBACK_QUOTES
-        
-        # Check file size
+            raise FileNotFoundError(f"Quotes file not found: {json_path}")
+
         file_size = os.path.getsize(json_path)
         if file_size == 0:
-            st.warning("📄 Quotes file is empty")
-            return FALLBACK_QUOTES
-        
-        # Load JSON data
+            raise ValueError("Quotes file is empty")
+
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        
-        # Extract quotes
+
         if isinstance(data, dict):
-            quotes = data.get('quotes', [])
+            quotes = data.get("quotes", [])
         elif isinstance(data, list):
             quotes = data
         else:
-            st.warning("📄 Invalid JSON format")
-            return FALLBACK_QUOTES
-        
-        # Validate quotes
-        valid_quotes = [quote.strip() for quote in quotes if isinstance(quote, str) and len(quote.strip()) > 0]
-        
+            raise ValueError("Invalid JSON format")
+
+        valid_quotes = [
+            quote.strip() for quote in quotes
+            if isinstance(quote, str) and quote.strip()
+        ]
+
         if not valid_quotes:
-            st.warning("📄 No valid quotes found in file")
-            return FALLBACK_QUOTES
-        
-        # Success message
-        st.success(f"✅ Loaded {len(valid_quotes)} quotes from JSON file ({file_size} bytes)")
+            raise ValueError("No valid quotes found in JSON file")
+
+        st.success(f"✅ Loaded {len(valid_quotes)} quotes from JSON file")
         return valid_quotes
-        
-    except json.JSONDecodeError as e:
-        st.error(f"📄 JSON parsing error: {str(e)}")
-        return FALLBACK_QUOTES
+
     except Exception as e:
-        st.error(f"📄 Error loading quotes: {str(e)}")
-        return FALLBACK_QUOTES
+        st.error(f"❌ Failed to load quotes: {str(e)}")
+        raise e
+
 
 # -------- Vector Store Creation ----------
 def create_vectorstore(texts):
@@ -115,16 +88,19 @@ def create_vectorstore(texts):
     if not split_docs:
         raise ValueError("No split documents to embed")
 
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
     vectorstore = FAISS.from_documents(split_docs, embedding=embeddings)
     return vectorstore.as_retriever()
+
 
 # -------- Initialize QA Chain ----------
 chattiness = st.sidebar.slider(
     "Chattiness Level 💬",
-    min_value = 1,
-    max_value = 10,
-    value = 5,
+    min_value=1,
+    max_value=10,
+    value=5,
     help="Adjust how flirty and verbose she is. 1 = Calm, 10 = Wild"
 )
 temperature = 0.3 + (chattiness - 1) * 0.07
@@ -132,6 +108,7 @@ max_tokens = st.sidebar.slider("Maximum Tokens", min_value=10, max_value=600, va
 
 st.sidebar.markdown(f"🌡️ Temperature: `{temperature:.2f}`")
 st.sidebar.markdown(f"✏️ Max Tokens: `{max_tokens}`")
+
 
 def initialize_chain(retriever):
     llm = ChatOpenAI(
@@ -164,13 +141,12 @@ def initialize_chain(retriever):
         }
     )
 
+
 # -------- Streamlit App ----------
 st.set_page_config(page_title="AI Girlfriend 💖", page_icon="💌")
-
 st.title("💖 Your Loving AI Girlfriend")
 st.write("Tell me how you're feeling... I'm all yours. 💗")
 
-# Initialize session state
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
@@ -184,7 +160,6 @@ if "qa_chain" not in st.session_state:
             st.error(f"💔 Failed to initialize: {str(e)}")
             st.stop()
 
-# Input and Response
 user_input = st.chat_input("Start your conversation, love...")
 
 if user_input:
@@ -203,6 +178,6 @@ if user_input:
         answer = result["answer"] if isinstance(result, dict) else result
         st.session_state.chat_history.append(("assistant", answer))
 
-# Display previous chat
+# Optional: show previous messages
 for sender, msg in st.session_state.chat_history[:-1]:
     st.chat_message(sender).markdown(msg)
