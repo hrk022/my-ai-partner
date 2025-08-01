@@ -31,14 +31,10 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 📦 Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libfaiss-dev
-
-      - name: 📥 Install Python dependencies
+      - name: 📥 Install Python dependencies (includes faiss-cpu)
         run: |
           python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: 🧹 Lint and check Python syntax
         run: |
@@ -46,6 +42,6 @@ jobs:
           flake8 ai-partner.py
           python -m py_compile ai-partner.py
 
-      # ❌ DO NOT RUN STREAMLIT HERE (It won't exit in CI)
+      # ❌ Do NOT run Streamlit server here
       # - name: Run chatbot app
       #   run: streamlit run ai-partner.py
