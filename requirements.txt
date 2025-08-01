@@ -1,8 +1,8 @@
-streamlit
-python-dotenv
-torch
-langchain
-langchain-community
-openai
-faiss-cpu
-sentence-transformers
+streamlit==1.35.0
+python-dotenv==1.0.1
+torch==2.2.2+cpu
+langchain==0.2.1
+langchain-community==0.2.1
+openai==1.33.0
+faiss-cpu==1.7.4
+sentence-transformers==2.7.0
