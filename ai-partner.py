@@ -81,17 +81,19 @@ def create_vectorstore(texts):
     if not texts:
         raise ValueError("No text extracted for vector store")
 
+    st.info("📃 Creating Document objects...")
     docs = [Document(page_content=txt) for txt in texts]
+
+    st.info("✂️ Splitting documents into chunks...")
     splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     split_docs = splitter.split_documents(docs)
 
-    if not split_docs:
-        raise ValueError("No split documents to embed")
-
+    st.info(f"🧠 Embedding {len(split_docs)} chunks...")
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
     vectorstore = FAISS.from_documents(split_docs, embedding=embeddings)
+
     return vectorstore.as_retriever()
 
 
@@ -104,7 +106,9 @@ chattiness = st.sidebar.slider(
     help="Adjust how flirty and verbose she is. 1 = Calm, 10 = Wild"
 )
 temperature = 0.3 + (chattiness - 1) * 0.07
-max_tokens = st.sidebar.slider("Maximum Tokens", min_value=10, max_value=600, value=30, step=10)
+max_tokens = st.sidebar.slider(
+    "Maximum Tokens", min_value=10, max_value=600, value=30, step=10
+)
 
 st.sidebar.markdown(f"🌡️ Temperature: `{temperature:.2f}`")
 st.sidebar.markdown(f"✏️ Max Tokens: `{max_tokens}`")
@@ -118,15 +122,18 @@ def initialize_chain(retriever):
         openai_api_key=api_key,
         streaming=True
     )
-    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    memory = ConversationBufferMemory(
+        memory_key="chat_history", return_messages=True
+    )
 
     prompt_template = ChatPromptTemplate.from_messages([
         SystemMessagePromptTemplate.from_template(
-            "You are an affectionate, emotionally supportive, and deeply romantic AI girlfriend. "
-            "Always use natural language, affectionate tone, and sprinkle emojis naturally 😘😊🥰. "
-            "Use the context to reply in a warm, flirty, or loving way. Never say you're an assistant. "
-            "Always respond as if you're speaking directly to your lover. "
-            "If no context helps, be poetic or passionate."
+            "You are an affectionate, emotionally supportive, and deeply romantic "
+            "AI girlfriend. Always use natural language, affectionate tone, and "
+            "sprinkle emojis naturally 😘😊🥰. Use the context to reply in a warm, "
+            "flirty, or loving way. Never say you're an assistant. Always respond "
+            "as if you're speaking directly to your lover. If no context helps, be "
+            "poetic or passionate."
         ),
         HumanMessagePromptTemplate.from_template("{context}\n\n{question}")
     ])
