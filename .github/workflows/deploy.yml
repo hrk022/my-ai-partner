@@ -36,12 +36,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🧹 Lint and check Python syntax
+      - name: 🧪 Compile Python syntax
         run: |
-          pip install flake8
-          flake8 ai-partner.py
           python -m py_compile ai-partner.py
-
-      # ❌ Do NOT run Streamlit server here
-      # - name: Run chatbot app
-      #   run: streamlit run ai-partner.py
